@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>휴머노이드 ROS 노드 연결 구조</title>
+<title>휴머노이드 ROS 노드 연결 구조 · 리팩토링 최종안</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#F5F7FA; --card:#FFFFFF; --ink:#18212D; --muted:#5B6676; --line:#D9DEE6;
-  --c-p:#6B7280; --c-s:#5B5BD6; --c-c:#138A72; --c-v:#C2571E;
+  --c-p:#6B7280; --c-s:#5B5BD6; --c-u:#138A72; --c-b:#C2571E;
   --band:#EDF0F5;
   --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -18,14 +18,14 @@
 @media (prefers-color-scheme:dark){
   :root{
     --paper:#11161D; --card:#19202A; --ink:#E6EAF0; --muted:#98A2B3; --line:#2C3542;
-    --c-p:#9CA3AF; --c-s:#8F8FF0; --c-c:#3CC3A2; --c-v:#F08A50;
+    --c-p:#9CA3AF; --c-s:#8F8FF0; --c-u:#3CC3A2; --c-b:#F08A50;
     --band:#161C25;
   }
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.6}
-.wrap{max-width:1320px;margin:0 auto;padding:40px 32px 56px}
-header{max-width:760px;margin-bottom:28px}
+.wrap{max-width:1440px;margin:0 auto;padding:40px 32px 56px}
+header{max-width:780px;margin-bottom:28px}
 h1{font-size:30px;font-weight:600;letter-spacing:-0.01em;margin:0 0 8px;line-height:1.3}
 header p{margin:0;color:var(--muted);font-size:16px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
@@ -34,13 +34,14 @@ header p{margin:0;color:var(--muted);font-size:16px}
 #g .nd{cursor:pointer;transition:opacity .2s}
 #g .nd:focus{outline:none}
 #g .nd:focus-visible rect.box{stroke-width:3}
+#g .nd:hover rect.box{stroke-width:2.2}
 #g .ed{transition:opacity .2s}
 #g.sel .nd,#g.sel .ed{opacity:.12}
 #g.sel .on{opacity:1}
-#g .nd:hover rect.box{stroke-width:2.2}
 .legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px;color:var(--muted);margin:12px 4px 0}
 .legend span{display:flex;align-items:center;gap:7px}
 .legend i{width:13px;height:13px;border-radius:3px;border:2px solid;display:inline-block}
+.legend i.tbd{border-style:dashed}
 aside{position:sticky;top:24px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;min-height:200px}
 aside h2{font-size:19px;font-weight:600;margin:0 0 2px}
 aside .role{font-size:13px;color:var(--muted);margin:0 0 14px}
@@ -50,16 +51,19 @@ aside li{padding:7px 0;border-top:1px solid var(--line);font-size:14px}
 aside li:first-child{border-top:0}
 aside li .who{font-weight:500}
 aside li .kind{font-size:12px;color:var(--muted);margin-left:6px}
+aside li .est{font-size:12px;color:var(--c-b);margin-left:6px}
 aside code{display:block;font-family:var(--mono);font-size:12.5px;color:var(--muted);word-break:break-all;margin-top:2px}
-aside .empty{color:var(--muted);font-size:14px}
+aside .empty{color:var(--muted);font-size:14px;margin:0}
 aside .hint{color:var(--muted);font-size:14px;margin:0}
 button.reset{margin-top:16px;font:inherit;font-size:13px;background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}
 button.reset:hover{border-color:var(--muted)}
 button.reset:focus-visible{outline:2px solid var(--c-s);outline-offset:2px}
 .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:0}
-@media (max-width:980px){
+@media (max-width:1080px){
   .layout{grid-template-columns:1fr}
   aside{position:static}
+}
+@media (max-width:700px){
   .wrap{padding:24px 16px 40px}
   h1{font-size:24px}
 }
@@ -70,14 +74,14 @@ button.reset:focus-visible{outline:2px solid var(--c-s);outline-offset:2px}
 <div class="wrap">
   <header>
     <h1>휴머노이드 ROS 노드 연결 구조</h1>
-    <p>Orchestrator가 Subjob을 순서대로 호출하고, Subjob은 기본 기능 모듈을 조합해 Kuavo 로봇을 움직입니다. 노드를 클릭하면 주고받는 토픽과 서비스가 오른쪽에 표시됩니다.</p>
+    <p>리팩토링 최종안 기준입니다. 기본 기능 레이어 위에 Utility 레이어가 계산과 변환을 맡고, 작업 제어 레이어의 Subjob이 이를 조합하며, Orchestrator가 Subjob을 순서대로 호출합니다. 노드를 클릭하면 주고받는 토픽과 서비스가 오른쪽에 표시됩니다.</p>
   </header>
 
   <div class="layout">
     <div class="stage">
-      <svg id="g" viewBox="0 0 960 540" role="img" aria-labelledby="gt gd">
-        <title id="gt">휴머노이드 ROS 노드 그래프</title>
-        <desc id="gd">Orchestrator, Subjob, 제어 모듈, 인식 모듈, Kuavo 로봇 5개 계층의 노드와 토픽·서비스 연결</desc>
+      <svg id="g" viewBox="0 0 1120 490" role="img" aria-labelledby="gt gd">
+        <title id="gt">휴머노이드 ROS 노드 그래프 (리팩토링 최종안)</title>
+        <desc id="gd">프로세스 관리, 작업 제어, Utility, 기본 기능, 로봇 5개 계층의 노드와 토픽·서비스 연결</desc>
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -86,14 +90,16 @@ button.reset:focus-visible{outline:2px solid var(--c-s);outline-offset:2px}
         <g id="bands"></g>
         <g id="edges"></g>
         <g id="nodes"></g>
+        <g id="over"></g>
       </svg>
       <div class="legend">
         <span><i style="border-color:var(--c-p)"></i>프로세스 관리 / 로봇</span>
         <span><i style="border-color:var(--c-s)"></i>작업 제어 (Subjob)</span>
-        <span><i style="border-color:var(--c-c)"></i>제어 모듈</span>
-        <span><i style="border-color:var(--c-v)"></i>인식 / 위치 모듈</span>
+        <span><i style="border-color:var(--c-u)"></i>Utility</span>
+        <span><i style="border-color:var(--c-b)"></i>기본 기능</span>
         <span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="1.4"/></svg>토픽</span>
-        <span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="1.4" stroke-dasharray="5 4"/></svg>서비스 / 액션</span>
+        <span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="1.4" stroke-dasharray="6 4"/></svg>서비스 / 액션</span>
+        <span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="1.6" stroke-dasharray="1.5 3.5" stroke-linecap="round"/></svg>문서에 없는 추정 연결</span>
       </div>
     </div>
 
@@ -102,66 +108,102 @@ button.reset:focus-visible{outline:2px solid var(--c-s);outline-offset:2px}
 </div>
 
 <script>
-const COLOR = {p:'var(--c-p)', s:'var(--c-s)', c:'var(--c-c)', v:'var(--c-v)'};
+const COLOR = {p:'var(--c-p)', s:'var(--c-s)', u:'var(--c-u)', b:'var(--c-b)'};
+const GROUP = {p:'프로세스 관리 / 로봇', s:'작업 제어 레이어 (Subjob)', u:'Utility 레이어', b:'기본 기능 활용 레이어'};
 const BANDS = [
-  ['프로세스 관리', 22], ['작업 제어', 122], ['제어 모듈', 232], ['인식 / 위치', 342], ['로봇', 452]
+  ['프로세스 관리', 8, 72], ['작업 제어', 88, 72], ['Utility', 168, 152], ['기본 기능', 328, 72], ['로봇', 408, 72]
 ];
-// id, 이름, 부제, x, y, 폭, 그룹, 설명
+const H = 52;
+// id, 이름, 부제, x, y, 폭, 그룹, 설명, 세부 설계 전 여부
 const N = [
-  ['orch','Orchestrator','Subjob 순차 실행',455,30,170,'p','전체 프로세스를 관리합니다. Subjob 서비스를 순서대로 호출합니다.'],
-  ['navp','Nav proxy server','위치 id로 이동',140,130,170,'s','positions.yaml에 정의된 위치 id만으로 이동을 요청할 수 있게 move_base 액션을 감싼 노드입니다.'],
-  ['pose','Posing server','init_pose 호출',350,130,170,'s','init_pose.yaml에 저장된 자세(팔, 허리, 그리퍼)를 서비스 호출로 불러옵니다.'],
-  ['pick','Pick box','상자 잡기',560,130,170,'s','로봇 정렬, 가까운 상자 선택, 잡고 허리 들어올리기까지 상자 집기 작업을 순차 수행합니다.'],
-  ['put','Put box','레일에 놓기',770,130,170,'s','상자를 레일 위에 내려놓습니다. 레일에 이미 상자가 있으면 대기합니다.'],
-  ['nav','Navigation stack','move_base',140,240,170,'c','ROS Navigation Stack. Kuavo가 제공하는 tf, odom, laser scan, cmd_vel을 그대로 활용합니다.'],
-  ['arm','Arm control','MoveIt, eef TF',350,240,170,'c','수정된 URDF로 양팔(필요 시 torso x, z)을 제어하고 보정된 eef 위치를 TF로 발행합니다.'],
-  ['grasp','Grasp point conv.','grasp point 계산',560,240,170,'c','Grasp_points.yaml을 기준으로 타깃 오브젝트 중심에서 양손 grasp point를 계산합니다.'],
-  ['grip','Gripper control','열기 / 닫기',770,240,170,'c','Kuavo 그리퍼 토픽을 gripper_open, gripper_close 두 개의 Trigger 서비스로 감쌉니다.'],
-  ['map','Marker mapping','마커 기반 측위',245,350,170,'v','landmark.yaml의 고정 마커와 odom을 이용해 map→odom 보정을 수행합니다. 2D 라이다를 쓰기 어려울 때 사용합니다.'],
-  ['mm','Multi marker obj.','오브젝트 pose',455,350,170,'v','object.yaml에 정의된 다중 마커로 오브젝트 중심 pose를 추정하고 obeject_pose_list로 발행합니다.'],
-  ['tag','apriltag_ros','Marker detection',665,350,170,'v','AprilTag 탐지 오픈소스 패키지. publish_tf:=False로 두고 tag_detections 토픽만 사용합니다.'],
-  ['kuavo','Kuavo robot','카메라, odom, 팔 · 허리 · 그리퍼 · 주행 제어',140,460,800,'p','로봇 본체. 카메라 영상과 odom을 제공하고, 팔·허리·그리퍼·주행 명령 토픽을 받습니다.']
+  ['orch','Orchestrator','Subjob 순차 실행',535,18,170,'p','Subjob을 순서에 따라 처리합니다. 순차 제어 이상의 복잡한 책임은 갖지 않도록 설계합니다.',0],
+
+  ['alignrack','AlignRack','map 절대 좌표 이동',135,98,125,'s','Navigation Proxy Server를 Trigger 서비스로 쓸 수 있도록 중간에서 거쳐 가는 노드입니다. map 기준 절대 좌표로 이동합니다.',0],
+  ['alignrail','AlignRail','map 절대 좌표 이동',276,98,125,'s','Navigation Proxy Server를 Trigger 서비스로 쓸 수 있도록 중간에서 거쳐 가는 노드입니다. positions.yaml에 정의된 Rail 앞 위치로 map 기준 절대 좌표 이동을 합니다.',0],
+  ['move','Move','base_link 상대 이동',417,98,125,'s','Navigation Proxy Server를 Trigger 서비스로 감싼 노드입니다. 뒤로 10cm, 180도 회전처럼 base_link 기준 상대 좌표 이동을 제공합니다.',0],
+  ['pick','Pick box','상자 잡기',558,98,125,'s','정렬, 가장 가까운 상자 선택, 상자를 잡고 허리 들기를 순차 수행합니다. 문서의 ROS interface는 이전 설계 기준이라, Find nearest box와 Grasp pose conv.와의 연결은 추정했습니다.',0],
+  ['put','Put box','레일에 놓기',699,98,125,'s','상자를 Rail 위에 내려놓습니다. Rail 위에 상자가 이미 있으면 대기하는 기능은 Watch area empty를 사용할 것으로 추정했습니다.',0],
+  ['pready','PosingReady','준비 자세 호출',840,98,125,'s','Orchestrator가 Posing Server를 posing_ready Trigger 서비스로 호출할 수 있도록 중간에서 거쳐 가는 노드입니다. 상자를 잡기 전의 준비 자세를 불러옵니다.',0],
+  ['pidle','PosingIdle','기본 자세 호출',981,98,125,'s','Orchestrator가 Posing Server를 posing_idle Trigger 서비스로 호출할 수 있도록 중간에서 거쳐 가는 노드입니다. 이동 및 대기 시의 기본 자세를 불러옵니다.',0],
+
+  ['navp','Nav proxy server','동작 이름으로 이동',250,178,140,'u','Navigation 모듈을 단순화된 서비스로 감쌉니다. Kuavo 내부 Navigation 구성이 아직 확인되지 않아 구현은 바뀔 수 있지만, navigation_proxy_move_<동작 이름> 인터페이스는 유지합니다. positions.yaml에 반복 사용하는 위치와 동작을 정의합니다.',0],
+  ['find','Find nearest box','최근접 상자 id, pose',430,178,140,'u','상자 리스트에서 로봇과 가장 가까운 상자를 찾아 id와 pose를 발행합니다. pose_nearest_box는 Rviz 디버깅용입니다.',0],
+  ['grasp','Grasp pose conv.','상자 grasp point',590,178,140,'u','Box Grasp Pose Converter. 지정된 상자 id에 대해 Grasp_points.yaml의 offset을 적용하여 양손 grasp point를 계산합니다.',0],
+  ['watch','Watch area empty','집하 공간 감시',750,178,140,'u','Watch Collection Area Empty. collection_area.yaml에 정의된 집하 공간 안의 상자 id, 경계에 걸친 상자 id, 비어 있는지 여부를 발행합니다.',0],
+  ['posing','Posing server','yaml 자세 호출',950,178,140,'u','init_pose.yaml에 저장된 자세(팔, 허리, 그리퍼)를 init_pose_N 서비스로 불러옵니다.',0],
+
+  ['opcrack','Object pose conv.','/rack namespace',430,258,150,'u','Object Pose Converter의 Rack 인스턴스. tag_detections에서 objects.yaml에 등록된 Rack 마커만 골라 Detection3DArray로 발행합니다.',0],
+  ['opcbox','Object pose conv.','/box namespace',620,258,150,'u','Object Pose Converter의 Box 인스턴스. Rack 인스턴스와 같은 소스코드를 namespace와 param만 달리하여 실행합니다.',0],
+
+  ['nav','Navigation','move_base',135,338,150,'b','ROS Navigation Stack. Kuavo가 제공하는 tf, odom, laser scan, cmd_vel을 그대로 활용합니다.',0],
+  ['mloc','Marker localization','marker_based_loc.',300,338,150,'b','landmark.yaml의 고정 마커와 odom을 이용해 map→odom 보정을 수행합니다. 2D 라이다 기반 측위를 쓰기 어려울 때 사용합니다.',0],
+  ['tag','apriltag_ros','Marker detection',465,338,150,'b','AprilTag 탐지 오픈소스 패키지. publish_tf:=False로 두고 tag_detections 토픽만 사용합니다.',0],
+  ['arm','Arm control','MoveIt, eef TF',640,338,150,'b','수정된 URDF로 양팔(필요 시 torso x, z)을 제어하고, 보정된 eef 위치를 TF로 발행합니다.',0],
+  ['grip','Gripper control','열기 / 닫기',820,338,150,'b','Kuavo 그리퍼 토픽을 gripper_open, gripper_close 두 개의 Trigger 서비스로 감쌉니다. Kuavo 자체 controlLejuClaw 서비스 활용도 검토 중입니다.',0],
+
+  ['kuavo','Kuavo 5W robot','카메라, odom, 팔 · 허리 · 그리퍼 · 옴니휠 주행 제어',135,418,970,'p','로봇 본체. 카메라 영상과 odom을 제공하고, 팔·허리·그리퍼·주행 명령 토픽을 받습니다.',0]
 ];
-// from, to, 이름, 서비스 여부, 비고
+// from, to, 이름, 서비스/액션 여부, 추정 여부
 const E = [
-  ['orch','navp','navigation_proxy_move',1],
-  ['orch','pose','init_pose_N (Trigger)',1],
-  ['orch','pick','pick_box (Trigger)',1],
-  ['orch','put','put_box (Trigger)',1],
-  ['navp','nav','move_base action (PoseStamped)',1],
-  ['pick','nav','move_base_simple/goal',0],
-  ['pick','arm','arm control srv (eef pose L/R)',1],
-  ['pick','grip','gripper_open / gripper_close',1],
-  ['put','grip','gripper_open / gripper_close',1],
-  ['arm','put','/tf  eef_pose_calibrated_L/R',0],
-  ['mm','pick','obeject_pose_list',0],
-  ['mm','put','obeject_pose_list (레일 위 상자 확인)',0],
-  ['mm','arm','obeject_pose_list (충돌 회피)',0],
-  ['mm','grasp','obeject_pose_list',0],
-  ['grasp','pick','target_grasp_points, target_object_id (구독 노드 추정)',0],
-  ['tag','mm','tag_detections',0],
-  ['tag','map','tag_detections',0],
-  ['map','nav','map, /tf (map→odom)',0],
-  ['kuavo','tag','image_rect, camera_info',0],
-  ['kuavo','map','odom',0],
-  ['nav','kuavo','cmd_vel',0],
-  ['arm','kuavo','팔 궤적 명령 (MoveIt 구성에 따름)',0],
-  ['grip','kuavo','/leju_claw_command',0],
-  ['pose','kuavo','/kuavo_arm_traj, /leju_claw_command, /cmd_lb_torso_pose',0],
-  ['put','kuavo','/cmd_lb_torso_pose',0]
+  ['orch','alignrack','align_rack (Trigger)',1,0],
+  ['orch','alignrail','align_rail (Trigger)',1,0],
+  ['orch','move','move_back_10cm, move_turn_180, move_turn_90 등 (Trigger)',1,0],
+  ['orch','pick','pick_box (Trigger)',1,0],
+  ['orch','put','put_box (Trigger)',1,0],
+  ['orch','pready','posing_ready (Trigger)',1,0],
+  ['orch','pidle','posing_idle (Trigger)',1,0],
+
+  ['alignrack','navp','navigation_proxy_move_<동작 이름>',1,0],
+  ['alignrail','navp','navigation_proxy_move_<동작 이름> (Rail 앞 위치)',1,0],
+  ['move','navp','navigation_proxy_move_<동작 이름>',1,0],
+  ['pready','posing','init_pose_<준비 자세 번호> (Trigger)',1,0],
+  ['pidle','posing','init_pose_<기본 자세 번호> (Trigger)',1,0],
+
+  ['opcbox','pick','/box/obeject_pose_list',0,0],
+  ['find','pick','id_nearest_box',0,1],
+  ['pick','grasp','set_object_id',1,1],
+  ['grasp','pick','target_grasp_points, target_object_id',0,1],
+  ['pick','nav','move_base_simple/goal',0,0],
+  ['pick','arm','arm control srv (pose_eef_right / left)',1,0],
+  ['pick','grip','gripper_open / gripper_close',1,0],
+
+  ['opcbox','put','/box/obeject_pose_list (레일 위 상자 확인)',0,0],
+  ['watch','put','is_collection_area_empty 등',0,1],
+  ['arm','put','/tf  eef_pose_calibrated_right / left',0,0],
+  ['put','grip','gripper_open / gripper_close',1,0],
+  ['put','kuavo','/cmd_lb_torso_pose',0,0],
+
+  ['opcbox','find','/box/obeject_pose_list',0,0],
+  ['opcbox','grasp','/box/obeject_pose_list',0,0],
+  ['opcbox','watch','/box/obeject_pose_list',0,0],
+  ['mloc','watch','/tf (map→base_link 변환)',0,0],
+  ['navp','nav','이동 요청 (구현 방식 미정)',1,0],
+  ['posing','kuavo','/kuavo_arm_traj, /leju_claw_command, /cmd_lb_torso_pose',0,0],
+
+  ['tag','opcrack','tag_detections',0,0],
+  ['tag','opcbox','tag_detections',0,0],
+  ['opcrack','arm','/rack/obeject_pose_list (충돌 검사)',0,0],
+  ['opcbox','arm','/box/obeject_pose_list (충돌 검사)',0,0],
+
+  ['tag','mloc','tag_detections',0,0],
+  ['mloc','nav','map, /tf (map→odom)',0,0],
+  ['kuavo','tag','image_rect, camera_info',0,0],
+  ['kuavo','mloc','odom',0,0],
+  ['nav','kuavo','cmd_vel',0,0],
+  ['arm','kuavo','팔 궤적 명령 (MoveIt 구성에 따름)',0,1],
+  ['grip','kuavo','/leju_claw_command',0,0]
 ];
 
-const H = 54, M = {};
-N.forEach(n => M[n[0]] = {id:n[0],t:n[1],s:n[2],x:n[3],y:n[4],w:n[5],h:H,g:n[6],d:n[7]});
+const M = {};
+N.forEach(n => M[n[0]] = {id:n[0],t:n[1],s:n[2],x:n[3],y:n[4],w:n[5],h:H,g:n[6],d:n[7],tbd:n[8]});
 
 const NS = 'http://www.w3.org/2000/svg', svg = document.getElementById('g');
 function el(tag, attrs, parent){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; }
 
-// layer bands
 const bg = document.getElementById('bands');
-BANDS.forEach(([label, y]) => {
-  el('rect',{x:0,y:y,width:960,height:70,rx:8,fill:'var(--band)'},bg);
-  const t = el('text',{x:16,y:y+35,'dominant-baseline':'central','font-size':13,fill:'var(--muted)','font-family':'var(--sans)'},bg);
+BANDS.forEach(([label, y, h]) => {
+  el('rect',{x:0,y:y,width:1120,height:h,rx:8,fill:'var(--band)'},bg);
+  const t = el('text',{x:14,y:y+h/2,'dominant-baseline':'central','font-size':13,fill:'var(--muted)','font-family':'var(--sans)'},bg);
   t.textContent = label;
 });
 
@@ -176,7 +218,7 @@ function clip(n, cx, cy, dx, dy, pad){
   return [cx + dx*t, cy + dy*t];
 }
 
-const eg = document.getElementById('edges'), ng = document.getElementById('nodes');
+const eg = document.getElementById('edges'), ng = document.getElementById('nodes'), og = document.getElementById('over');
 E.forEach(e => {
   const a = M[e[0]], b = M[e[1]];
   let [ax, ay] = anchor(a, b.x + b.w/2), [bx, by] = anchor(b, a.x + a.w/2);
@@ -184,44 +226,49 @@ E.forEach(e => {
   if (b.id === 'kuavo') bx = ax;
   const dx = bx-ax, dy = by-ay, L = Math.hypot(dx, dy), ux = dx/L, uy = dy/L;
   const [sx, sy] = clip(a, ax, ay, ux, uy, 0), [tx, ty] = clip(b, bx, by, -ux, -uy, 4);
-  const ln = el('line',{x1:sx,y1:sy,x2:tx,y2:ty,stroke:COLOR[a.g],'stroke-width':1.4,'marker-end':'url(#arrow)',class:'ed'},eg);
-  if (e[3]) ln.setAttribute('stroke-dasharray','6 4');
-  e.el = ln;
+  const attrs = {x1:sx,y1:sy,x2:tx,y2:ty,stroke:COLOR[a.g],'stroke-width':1.4,'marker-end':'url(#arrow)',class:'ed','stroke-linecap':'round'};
+  if (e[4]) { attrs['stroke-dasharray'] = '1.5 4'; attrs['stroke-width'] = 1.7; }
+  else if (e[3]) attrs['stroke-dasharray'] = '6 4';
+  e.el = el('line', attrs, eg);
 });
 
 N.forEach(r => {
   const n = M[r[0]];
-  const g = el('g',{class:'nd',tabindex:0,role:'button','aria-label':n.t + ' 연결 보기'},ng);
+  const g = el('g',{class:'nd',tabindex:0,role:'button','aria-label':n.t + (n.s ? ' ' + n.s : '') + ' 연결 보기'},ng);
   n.el = g;
-  el('rect',{class:'box',x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill:'var(--card)',stroke:COLOR[n.g],'stroke-width':1.5},g);
-  const t = el('text',{x:n.x+n.w/2,y:n.y+19,'text-anchor':'middle','dominant-baseline':'central','font-size':15,'font-weight':600,fill:'var(--ink)','font-family':'var(--sans)'},g);
+  const rect = el('rect',{class:'box',x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill:'var(--card)',stroke:COLOR[n.g],'stroke-width':1.5},g);
+  if (n.tbd) rect.setAttribute('stroke-dasharray','5 4');
+  const t = el('text',{x:n.x+n.w/2,y:n.y+18,'text-anchor':'middle','dominant-baseline':'central','font-size':14,'font-weight':600,fill:'var(--ink)','font-family':'var(--sans)'},g);
   t.textContent = n.t;
-  const s = el('text',{x:n.x+n.w/2,y:n.y+38,'text-anchor':'middle','dominant-baseline':'central','font-size':12.5,fill:'var(--muted)','font-family':'var(--sans)'},g);
+  const s = el('text',{x:n.x+n.w/2,y:n.y+36,'text-anchor':'middle','dominant-baseline':'central','font-size':12,fill:'var(--muted)','font-family':'var(--sans)'},g);
   s.textContent = n.s;
   g.addEventListener('click', ev => { ev.stopPropagation(); select(n.id); });
   g.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(n.id); } });
 });
 
 const info = document.getElementById('info');
-const GROUP = {p:'프로세스 관리 / 로봇', s:'작업 제어 (Subjob)', c:'제어 모듈', v:'인식 / 위치 모듈'};
 
 function defaultInfo(){
   info.innerHTML = `
     <h2>노드를 선택하세요</h2>
     <p class="hint">그래프의 노드를 클릭하면 해당 노드가 받는 연결과 보내는 연결이 강조되고, 토픽·서비스 이름이 여기에 표시됩니다.</p>
     <h3>읽는 법</h3>
-    <p class="hint">화살표는 데이터가 흐르는 방향입니다. 구독하는 토픽은 발행 노드에서 구독 노드로, 서비스는 클라이언트에서 서버로 향합니다.</p>`;
+    <p class="hint">화살표는 데이터가 흐르는 방향입니다. 토픽은 발행 노드에서 구독 노드로, 서비스와 액션은 클라이언트에서 서버로 향합니다.</p>
+    <h3>추정 연결</h3>
+    <p class="hint">점선 연결은 문서에 직접 적혀 있지 않아 설계 흐름으로 추정한 것입니다.</p>`;
 }
-function list(arr, key, dir){
+function list(arr, key){
   if (!arr.length) return '<p class="empty">없음</p>';
   return '<ul>' + arr.map(e => {
     const o = M[e[key]];
-    return `<li><span class="swatch" style="background:${COLOR[o.g]}"></span><span class="who">${o.t}</span><span class="kind">${e[3] ? '서비스 / 액션' : '토픽'}</span><code>${e[2]}</code></li>`;
+    const name = o.t === 'Object pose conv.' ? `${o.t} (${o.s.replace(' namespace','')})` : o.t;
+    return `<li><span class="swatch" style="background:${COLOR[o.g]}"></span><span class="who">${name}</span><span class="kind">${e[3] ? '서비스 / 액션' : '토픽'}</span>${e[4] ? '<span class="est">추정</span>' : ''}<code>${e[2]}</code></li>`;
   }).join('') + '</ul>';
 }
 function clearSel(){
   svg.classList.remove('sel');
   svg.querySelectorAll('.on').forEach(x => x.classList.remove('on'));
+  E.forEach(e => { if (e.el.parentNode === og) eg.appendChild(e.el); });
 }
 function select(id){
   clearSel();
@@ -229,12 +276,13 @@ function select(id){
   const n = M[id]; n.el.classList.add('on');
   const ins = [], outs = [];
   E.forEach(e => {
-    if (e[0] === id){ outs.push(e); e.el.classList.add('on'); M[e[1]].el.classList.add('on'); }
-    if (e[1] === id){ ins.push(e); e.el.classList.add('on'); M[e[0]].el.classList.add('on'); }
+    if (e[0] === id){ outs.push(e); e.el.classList.add('on'); og.appendChild(e.el); M[e[1]].el.classList.add('on'); }
+    if (e[1] === id){ ins.push(e); e.el.classList.add('on'); og.appendChild(e.el); M[e[0]].el.classList.add('on'); }
   });
+  const title = n.t === 'Object pose conv.' ? `${n.t} (${n.s.replace(' namespace','')})` : n.t;
   info.innerHTML = `
-    <h2>${n.t}</h2>
-    <p class="role"><span class="swatch" style="background:${COLOR[n.g]}"></span>${GROUP[n.g]}</p>
+    <h2>${title}</h2>
+    <p class="role"><span class="swatch" style="background:${COLOR[n.g]}"></span>${GROUP[n.g]}${n.tbd ? ' · 세부 설계 전' : ''}</p>
     <p class="hint">${n.d}</p>
     <h3>받는 연결 ←</h3>${list(ins, 0)}
     <h3>보내는 연결 →</h3>${list(outs, 1)}
